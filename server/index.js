@@ -83,9 +83,8 @@ io.on("connection", (socket) => {
     if (!room) {
       return callback({ players: [] });
     }
-    console.log(room.playerNames);
     callback({players : room.playerNames});
-    console.log("players in room , " , roomId);
+    console.log("players in room : " , roomId , " : " , room.playerNames);
   })
 
   // ✅ Join Room
@@ -167,10 +166,21 @@ io.on("connection", (socket) => {
     const passedUsers = Object.values(room.submissions).filter(s => s.passed);
     if (passedUsers.length === 1) {
       console.log("winner decided")
+      // Stop the timer when winner is decided
+      if (room.timerInterval) {
+        clearInterval(room.timerInterval);
+        room.timerInterval = null;
+      }
+      room.status = 'finished';
       io.to(roomId).emit('winner', { winner: socket.username });
     } else if (Object.keys(room.submissions).length === 2) {
       room.status = 'finished';
       console.log("ending match")
+      // Stop the timer when both players have submitted
+      if (room.timerInterval) {
+        clearInterval(room.timerInterval);
+        room.timerInterval = null;
+      }
       io.to(roomId).emit('match_end', { submissions: room.submissions });
     }
 

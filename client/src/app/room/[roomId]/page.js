@@ -27,6 +27,7 @@ export default function RoomPage() {
   const [code, setCode] = useState('#include <bits/stdc++.h>\n\nusing namespace std;\n\nint main() {\n    // Write your solution here\n    \n    return 0;\n}');
   const [output, setOutput] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [leftTab, setLeftTab] = useState('statement');
   const router = useRouter();
 
   // Animation variants
@@ -69,12 +70,17 @@ export default function RoomPage() {
           await connectSocket();
           setStatus('Connected');
           const socket = getSocket();
+          
           socket.emit('show_players', { roomId }, (res) => {
             console.log(res.players);
-            if (res) {
+            if (res && res.players && res.players.length > 0) {
               setDiffList(res.players);
+            } else {
+              setRoomEnded(true);
+              setEndReason('Room no longer exists or you were disconnected');
+              setStatus('🏁 Room ended');
             }
-          })
+          });
         } else {
           setStatus('🔐 Please log in first');
           router.push('/login');
@@ -86,7 +92,13 @@ export default function RoomPage() {
   }, []);
 
   useEffect(() => {
-    // All your existing event listeners remain the same...
+    const messagesContainer = document.querySelector('.messages-container');
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }, [messages]);
+
+  useEffect(() => {
     const handleTimeUpdate = (event) => {
       setTimeLeft(event.detail.timeLeft);
     };
@@ -137,8 +149,14 @@ export default function RoomPage() {
     };
 
     const handleReceiveMessage = (event) => {
-      const { username, message } = event.detail;
-      setMessages(prev => [...prev, { username, message, timestamp: new Date() }]);
+      const { username, message, id } = event.detail;
+      const socket = getSocket();
+      setMessages(prev => [...prev, { 
+        username, 
+        message, 
+        timestamp: new Date(),
+        socketId: id 
+      }]);
     };
 
     const handleBeforeUnload = () => {
@@ -201,11 +219,9 @@ export default function RoomPage() {
         "run_memory_limit": -1
       };
 
-      const response = await fetch('https://emkc.org/api/v2/piston/execute', {
+      const response = await fetch(process.env.NEXT_PUBLIC_PISTON_API_URL , {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       });
 
@@ -229,7 +245,11 @@ export default function RoomPage() {
       }
     } catch (error) {
       console.error('Error executing code:', error);
-      setOutput(`Execution Error:\n${error.message}`);
+      if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+        setOutput(`Network Error:\nUnable to connect to code execution server.\nPlease check if the server is running on localhost:2000`);
+      } else {
+        setOutput(`Execution Error:\n${error.message}`);
+      }
       const socket = await getSocket();
       socket.emit('submit_code', { roomId, output: 'Execution error', passed: false }, (res) => {
         console.log("submitted with execution error: ", res.success);
@@ -257,7 +277,8 @@ export default function RoomPage() {
     if (!newMessage.trim()) return;
     const socket = getSocket();
     if (socket) {
-      socket.emit('send_message', { roomId, message: newMessage.trim() });
+      const messageText = newMessage.trim();
+      socket.emit('send_message', { roomId, message: messageText });
       setNewMessage('');
     }
   };
@@ -274,74 +295,35 @@ export default function RoomPage() {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        style={{
-          minHeight: '100vh',
-          background: 'linear-gradient(135deg, #F7FFF7 0%, #4ECDC4 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '2rem'
-        }}
+        className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 p-6 flex items-center justify-center"
       >
         <motion.div
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.6 }}
-          style={{
-            background: '#FFFFFF',
-            padding: '3rem',
-            borderRadius: '24px',
-            textAlign: 'center',
-            boxShadow: '0 20px 60px rgba(26, 26, 46, 0.1)',
-            maxWidth: '500px',
-            width: '100%'
-          }}
+          className="bg-slate-800/90 backdrop-blur-xl p-12 rounded-3xl text-center shadow-2xl max-w-md w-full border border-slate-700/50"
         >
           <motion.div
             animate={{ rotate: [0, 10, -10, 0] }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            style={{ fontSize: '4rem', marginBottom: '1rem' }}
+            className="text-6xl mb-6"
           >
             🏁
           </motion.div>
-          <h1 style={{ 
-            color: '#1A1A1A', 
-            fontSize: '2rem', 
-            marginBottom: '1rem',
-            fontWeight: '700'
-          }}>
+          <h1 className="text-slate-100 text-3xl mb-4 font-bold">
             Room Ended
           </h1>
-          <p style={{ 
-            color: '#FF6B6B', 
-            fontSize: '1.2rem',
-            marginBottom: '1rem',
-            fontWeight: '600'
-          }}>
+          <p className="text-rose-400 text-xl mb-4 font-semibold">
             {endReason}
           </p>
-          <p style={{ 
-            color: '#1A1A1A', 
-            marginBottom: '2rem',
-            opacity: 0.8
-          }}>
+          <p className="text-slate-300 mb-8 leading-relaxed">
             The room has been closed because a player disconnected.
           </p>
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(59, 130, 246, 0.3)" }}
+            whileTap={{ scale: 0.98 }}
             onClick={handleBack}
-            style={{
-              background: 'linear-gradient(135deg, #4ECDC4 0%, #44B3AC 100%)',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '1rem 2rem',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              cursor: 'pointer',
-              boxShadow: '0 8px 25px rgba(78, 205, 196, 0.3)'
-            }}
+            className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-none rounded-xl px-8 py-4 text-lg font-semibold cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300"
           >
             Back to Home
           </motion.button>
@@ -355,59 +337,44 @@ export default function RoomPage() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #F7FFF7 0%, #E8F8F7 100%)',
-        padding: '2rem'
-      }}
+      className="min-h-screen bg-[#18181b] p-4 overflow-x-hidden"
     >
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="w-full mx-auto">
         {/* Header */}
-        <motion.div variants={itemVariants} style={{ marginBottom: '2rem' }}>
-          <motion.button
-            whileHover={{ x: -5 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleBack}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.1rem',
-              cursor: 'pointer',
-              color: '#4ECDC4',
-              fontWeight: '600',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              marginBottom: '1.5rem'
-            }}
-          >
-            ← Back to Home
-          </motion.button>
-
-          <div style={{
-            background: '#FFFFFF',
-            borderRadius: '20px',
-            padding: '2rem',
-            textAlign: 'center',
-            boxShadow: '0 10px 40px rgba(26, 26, 46, 0.08)'
-          }}>
-            <h1 style={{
-              color: '#1A1A1A',
-              fontSize: '2.5rem',
-              margin: '0 0 0.5rem 0',
-              fontWeight: '700'
-            }}>
-              Room: {roomId}
-            </h1>
-            <p style={{
-              color: '#4ECDC4',
-              fontSize: '1.2rem',
-              margin: 0,
-              fontWeight: '600'
-            }}>
-              {status}
-            </p>
+        <motion.div variants={itemVariants} className="mb-8">
+          <div className="relative flex items-center justify-between w-full gap-4 min-h-[56px]">
+            {/* Left: Back to Home */}
+            <motion.button
+              whileHover={{ x: -3, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleBack}
+              className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 text-lg cursor-pointer text-blue-400 font-semibold flex items-center gap-3 px-4 py-3 rounded-xl hover:text-cyan-400 hover:bg-slate-700/50 transition-all duration-300"
+            >
+              ← Back to Home
+            </motion.button>
+            {/* Center: Status */}
+            {gameStarted && status && (
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-4 py-2 rounded-xl bg-[#23272f] border border-slate-700/60 text-lg font-bold text-cyan-400 flex items-center gap-2 shadow z-10">
+                {status}
+              </div>
+            )}
+            {/* Right: Timer */}
+            {typeof timeLeft === 'number' && gameStarted ? (
+              <div className="px-4 py-2 rounded-xl bg-[#23272f] border border-slate-700/60 text-lg font-bold text-cyan-400 flex items-center gap-2 shadow ml-auto">
+                ⏰ {formatTime(timeLeft)}
+              </div>
+            ) : <div className="w-[120px]" />} {/* Spacer to keep layout consistent */}
           </div>
+          {!gameStarted && (
+            <div className="bg-[#23272f] rounded-2xl p-8 text-center shadow-xl border border-slate-700/60 mt-6">
+              <h1 className="text-slate-100 text-4xl mb-3 font-bold">
+                 Room: {roomId}
+              </h1>
+              <p className="text-cyan-400 text-xl font-semibold">
+                 {status}
+              </p>
+            </div>
+          )}
         </motion.div>
 
         {/* Notifications */}
@@ -418,19 +385,9 @@ export default function RoomPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               variants={itemVariants}
-              style={{
-                background: 'linear-gradient(135deg, #FFE66D 0%, #FDD835 100%)',
-                padding: '1.5rem',
-                borderRadius: '16px',
-                marginBottom: '2rem',
-                boxShadow: '0 8px 25px rgba(255, 230, 109, 0.3)'
-              }}
+              className="bg-[#23272f] p-6 rounded-2xl mb-8 shadow-lg border border-slate-700/60"
             >
-              <h4 style={{ 
-                color: '#1A1A1A', 
-                margin: '0 0 1rem 0',
-                fontWeight: '700'
-              }}>
+              <h4 className="text-slate-100 mb-3 font-bold text-lg flex items-center gap-2">
                 🎉 Recent Activity
               </h4>
               {notifications.map((notification, index) => (
@@ -439,11 +396,7 @@ export default function RoomPage() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  style={{
-                    margin: '0.5rem 0',
-                    color: '#1A1A1A',
-                    fontWeight: '500'
-                  }}
+                  className="my-2 text-slate-300 font-semibold text-sm"
                 >
                   {notification}
                 </motion.p>
@@ -452,296 +405,153 @@ export default function RoomPage() {
           )}
         </AnimatePresence>
 
-        {/* Timer */}
-        <AnimatePresence>
-          {timeLeft !== null && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              variants={itemVariants}
-              style={{
-                background: 'linear-gradient(135deg, #FF6B6B 0%, #E53E3E 100%)',
-                padding: '1rem 2rem',
-                borderRadius: '16px',
-                marginBottom: '2rem',
-                textAlign: 'center',
-                boxShadow: '0 8px 25px rgba(255, 107, 107, 0.3)',
-                maxWidth: '300px',
-                margin: '0 auto 2rem auto'
-              }}
-            >
-              <motion.h2
-                animate={pulseVariants}
-                style={{
-                  margin: '0 0 0.5rem 0',
-                  color: '#FFFFFF',
-                  fontSize: '1.8rem',
-                  fontWeight: '700'
-                }}
-              >
-                ⏰ {formatTime(timeLeft)}
-              </motion.h2>
-              {questionId && (
-                <p style={{
-                  margin: 0,
-                  color: '#FFFFFF',
-                  fontSize: '0.9rem',
-                  opacity: 0.9
-                }}>
-                  Question: {questionId}
-                </p>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Main Content Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: gameStarted ? '1fr 1fr' : '1fr',
-          gap: '2rem',
-          alignItems: 'start',
-          minHeight: gameStarted ? '700px' : 'auto'
-        }}>
+        <div className={`grid gap-2 items-start ${gameStarted ? 'lg:grid-cols-[minmax(0,40%)_minmax(0,60%)]' : 'grid-cols-1'} ${gameStarted ? 'min-h-[800px]' : ''} w-full max-w-full`}>
           {/* Left Column - Problem Statement and Chat */}
           {gameStarted ? (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              {/* Problem Statement */}
+            <div className="flex flex-col h-full min-h-0 w-full max-w-full">
               <motion.div
                 variants={itemVariants}
-                style={{
-                  background: '#FFFFFF',
-                  padding: '2rem',
-                  borderRadius: '20px',
-                  marginBottom: '2rem',
-                  boxShadow: '0 10px 40px rgba(26, 26, 46, 0.08)'
-                }}
+                className="bg-[#23272f] p-0 rounded-2xl shadow-xl border border-slate-700/60 h-full flex-1 min-h-0 flex flex-col"
               >
-                <h3 style={{
-                  color: '#1A1A1A',
-                  margin: '0 0 1.5rem 0',
-                  fontSize: '1.5rem',
-                  fontWeight: '700'
-                }}>
-                  📝 Problem Statement
-                </h3>
-                <div style={{
-                  color: '#1A1A1A',
-                  lineHeight: '1.6',
-                  fontSize: '1rem'
-                }}>
-                  <p style={{ marginBottom: '1rem' }}>
-                    <strong>Problem:</strong> Print &quot;akschansh&quot; to the console.
-                  </p>
-                  <p style={{ marginBottom: '1rem' }}>
-                    <strong>Input:</strong> No input required.
-                  </p>
-                  <p style={{ marginBottom: '1rem' }}>
-                    <strong>Output:</strong> Print exactly &quot;akschansh&quot; (without quotes) to stdout.
-                  </p>
-                  <p style={{ marginBottom: '1rem' }}>
-                    <strong>Example:</strong>
-                  </p>
-                  <div style={{
-                    background: '#F7FFF7',
-                    padding: '1rem',
-                    borderRadius: '8px',
-                    fontFamily: 'monospace',
-                    border: '1px solid #E6E6E6'
-                  }}>
-                    <div><strong>Input:</strong> (none)</div>
-                    <div><strong>Output:</strong> akschansh</div>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Chat */}
-              <motion.div
-                variants={itemVariants}
-                style={{
-                  background: '#FFFFFF',
-                  borderRadius: '20px',
-                  flex: 1,
-                  boxShadow: '0 10px 40px rgba(26, 26, 46, 0.08)',
-                  overflow: 'hidden',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
-              >
-                <div style={{
-                  background: 'linear-gradient(135deg, #4ECDC4 0%, #44B3AC 100%)',
-                  padding: '1.5rem',
-                  color: '#FFFFFF'
-                }}>
-                  <h3 style={{
-                    margin: 0,
-                    fontSize: '1.3rem',
-                    fontWeight: '700'
-                  }}>
-                    💬 Chat
-                  </h3>
-                </div>
-
-                {/* Messages Display */}
-                <div style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  padding: '1rem'
-                }}>
-                  <AnimatePresence>
-                    {messages.length === 0 ? (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        style={{
-                          color: '#1A1A1A',
-                          textAlign: 'center',
-                          marginTop: '6rem',
-                          opacity: 0.5
-                        }}
-                      >
-                        No messages yet. Start the conversation!
-                      </motion.p>
-                    ) : (
-                      messages.map((msg, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          style={{
-                            marginBottom: '1rem',
-                            padding: '1rem',
-                            background: msg.username === 'You' 
-                              ? 'linear-gradient(135deg, #FFE66D 0%, #FDD835 100%)'
-                              : '#F7FFF7',
-                            borderRadius: '12px',
-                            borderLeft: `4px solid ${msg.username === 'You' ? '#FFE66D' : '#4ECDC4'}`
-                          }}
-                        >
-                          <div style={{
-                            fontWeight: '700',
-                            fontSize: '0.9rem',
-                            color: '#1A1A1A',
-                            marginBottom: '0.5rem'
-                          }}>
-                            {msg.username}
-                          </div>
-                          <div style={{
-                            fontSize: '1rem',
-                            color: '#1A1A1A'
-                          }}>
-                            {msg.message}
-                          </div>
-                          <div style={{
-                            fontSize: '0.8rem',
-                            color: '#1A1A1A',
-                            opacity: 0.6,
-                            marginTop: '0.5rem'
-                          }}>
-                            {msg.timestamp.toLocaleTimeString()}
-                          </div>
-                        </motion.div>
-                      ))
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Message Input */}
-                <div style={{
-                  padding: '1rem',
-                  borderTop: '1px solid #E6E6E6',
-                  display: 'flex',
-                  gap: '0.5rem'
-                }}>
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
-                    style={{
-                      flex: 1,
-                      padding: '0.75rem',
-                      borderRadius: '12px',
-                      border: '2px solid #E6E6E6',
-                      fontSize: '1rem',
-                      outline: 'none',
-                      transition: 'border-color 0.3s ease'
-                    }}
-                    onFocus={(e) => e.target.style.borderColor = '#4ECDC4'}
-                    onBlur={(e) => e.target.style.borderColor = '#E6E6E6'}
-                  />
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
-                    style={{
-                      background: newMessage.trim() 
-                        ? 'linear-gradient(135deg, #4ECDC4 0%, #44B3AC 100%)'
-                        : '#E6E6E6',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '12px',
-                      padding: '0.75rem 1.5rem',
-                      cursor: newMessage.trim() ? 'pointer' : 'not-allowed',
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      boxShadow: newMessage.trim() 
-                        ? '0 4px 15px rgba(78, 205, 196, 0.3)'
-                        : 'none'
-                    }}
+                {/* Tabs */}
+                <div className="flex gap-2 p-4 border-b border-slate-700/60">
+                  <button
+                    onClick={() => setLeftTab('statement')}
+                    className={`px-6 py-2 rounded-xl font-bold cursor-pointer transition-all duration-300 ${
+                      leftTab === 'statement' 
+                        ? 'border-2 border-cyan-400 bg-[#23272f] text-cyan-400 shadow-lg' 
+                        : 'border border-slate-700/60 bg-[#18181b] text-slate-400 hover:text-slate-200 hover:bg-[#23272f]'
+                    }`}
                   >
-                    Send
-                  </motion.button>
+                    📝 Problem
+                  </button>
+                  <button
+                    onClick={() => setLeftTab('chat')}
+                    className={`px-6 py-2 rounded-xl font-bold cursor-pointer transition-all duration-300 ${
+                      leftTab === 'chat' 
+                        ? 'border-2 border-cyan-400 bg-[#23272f] text-cyan-400 shadow-lg' 
+                        : 'border border-slate-700/60 bg-[#18181b] text-slate-400 hover:text-slate-200 hover:bg-[#23272f]'
+                    }`}
+                  >
+                    💬 Chat
+                  </button>
+                </div>
+                {/* Tab Content */}
+                <div className="flex-1 min-h-0 p-6">
+                  {leftTab === 'statement' ? (
+                    <div>
+                      {/* <h3 className="text-slate-100 mb-6 text-2xl font-bold flex items-center gap-2">
+                        📝 Problem Statement
+                      </h3> */}
+                      <div className="text-slate-300 leading-relaxed text-base space-y-4">
+                        <p>
+                          <strong className="text-cyan-400">Problem:</strong> Print &#34;akschansh&#34; to the console.
+                        </p>
+                        <p>
+                          <strong className="text-cyan-400">Input:</strong> No input required.
+                        </p>
+                        <p>
+                          <strong className="text-cyan-400">Output:</strong> Print exactly &#34;akschansh&#34; (without quotes) to stdout.
+                        </p>
+                        <p>
+                          <strong className="text-cyan-400">Example:</strong>
+                        </p>
+                        <div className="bg-[#18181b] p-4 rounded-xl font-mono border border-slate-700/60 text-sm space-y-2">
+                          <div className="text-slate-300"><strong className="text-cyan-400">Input:</strong> (none)</div>
+                          <div className="text-emerald-400"><strong className="text-cyan-400">Output:</strong> akschansh</div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col h-full min-h-0">
+                      {/* Messages Display */}
+                      <div 
+                        className="messages-container overflow-y-auto flex-1 space-y-4 bg-transparent"
+                      >
+                        <AnimatePresence>
+                          {messages.length === 0 ? (
+                            <motion.p
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="text-slate-400 text-center mt-20 text-sm"
+                            >
+                              No messages yet. Start the conversation!
+                            </motion.p>
+                          ) : (
+                            messages.map((msg, index) => (
+                              <motion.div
+                                key={index}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                className={`flex ${msg.socketId === getSocket()?.id ? 'justify-end' : 'justify-start'}`}
+                              >
+                                <div className="max-w-[75%] p-4 bg-[#18181b] rounded-2xl border border-slate-700/60 text-slate-100">
+                                  <div className="font-bold text-xs text-blue-400 mb-2">
+                                    {msg.username}
+                                  </div>
+                                  <div className="text-sm leading-relaxed">
+                                    {msg.message}
+                                  </div>
+                                  <div className={`text-xs opacity-70 mt-2 ${msg.socketId === getSocket()?.id ? 'text-right' : 'text-left'}`}> 
+                                    {msg.timestamp.toLocaleTimeString()}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))
+                          )}
+                        </AnimatePresence>
+                      </div>
+                      {/* Message Input */}
+                      <div className="pt-6 flex gap-3 bg-transparent">
+                        <input
+                          type="text"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                          placeholder="Type your message..."
+                          className="flex-1 p-3 rounded-xl border border-slate-700/60 text-sm bg-[#18181b] text-slate-100 placeholder-slate-400 outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition-all duration-200"
+                        />
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim()}
+                          className={`px-6 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                            newMessage.trim() 
+                              ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white cursor-pointer shadow-lg hover:shadow-xl' 
+                              : 'bg-slate-700/60 text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          Send
+                        </motion.button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </div>
           ) : (
-            <div>
+            <div className="space-y-8">
               {/* Players */}
               {diffList.length > 0 && (
                 <motion.div
                   variants={itemVariants}
-                  style={{
-                    background: '#FFFFFF',
-                    padding: '2rem',
-                    borderRadius: '20px',
-                    marginBottom: '2rem',
-                    boxShadow: '0 10px 40px rgba(26, 26, 46, 0.08)'
-                  }}
+                  className="bg-[#23272f] p-8 rounded-2xl shadow-xl border border-slate-700/60"
                 >
-                  <h3 style={{
-                    color: '#1A1A1A',
-                    margin: '0 0 1.5rem 0',
-                    fontSize: '1.5rem',
-                    fontWeight: '700'
-                  }}>
+                  <h3 className="text-slate-100 mb-6 text-2xl font-bold flex items-center gap-2">
                     👥 Players ({diffList.length}/2)
                   </h3>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '1rem'
-                  }}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {diffList.map((player, index) => (
                       <motion.div
                         key={index}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        whileHover={{ y: -5 }}
-                        style={{
-                          background: 'linear-gradient(135deg, #4ECDC4 0%, #44B3AC 100%)',
-                          padding: '1.5rem',
-                          borderRadius: '16px',
-                          textAlign: 'center',
-                          color: '#FFFFFF',
-                          fontWeight: '600',
-                          boxShadow: '0 8px 25px rgba(78, 205, 196, 0.3)'
-                        }}
+                        whileHover={{ y: -2, scale: 1.02 }}
+                        className="bg-gradient-to-r from-cyan-500 to-blue-500 p-5 rounded-xl text-center text-white font-bold shadow-lg text-base"
                       >
                         👤 {player}
                       </motion.div>
@@ -751,162 +561,110 @@ export default function RoomPage() {
               )}
 
               {/* Waiting for Players */}
-              {!gameStarted && diffList.length < 2 && (
+              {!gameStarted && isOwner && diffList.length < 2 && (
                 <motion.div
                   variants={itemVariants}
-                  style={{
-                    background: '#FFFFFF',
-                    padding: '3rem',
-                    borderRadius: '20px',
-                    textAlign: 'center',
-                    marginBottom: '2rem',
-                    boxShadow: '0 10px 40px rgba(26, 26, 46, 0.08)'
-                  }}
+                  className="bg-[#23272f] p-10 rounded-2xl text-center shadow-xl border border-slate-700/60"
                 >
                   <motion.div
                     animate={{ rotate: [0, 360] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    style={{ fontSize: '4rem', marginBottom: '1rem', width: '4.5rem', height: '4.5rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', willChange: 'transform' }}
+                    className="text-6xl mb-6 inline-block text-cyan-400"
                   >
                     ⏳
                   </motion.div>
-                  <h3 style={{
-                    color: '#1A1A1A',
-                    margin: '0 0 1rem 0',
-                    fontSize: '1.8rem',
-                    fontWeight: '700'
-                  }}>
+                  <h3 className="text-slate-100 mb-4 text-3xl font-bold">
                     Waiting for players...
                   </h3>
-                  <p style={{
-                    color: '#1A1A1A',
-                    marginBottom: '2rem',
-                    opacity: 0.7
-                  }}>
+                  <p className="text-slate-400 mb-8 leading-relaxed text-lg">
                     Share the room ID with your opponent to start the game.
                   </p>
-                  <div style={{
-                    background: 'linear-gradient(135deg, #FFE66D 0%, #FDD835 100%)',
-                    padding: '2rem',
-                    borderRadius: '16px',
-                    margin: '2rem 0',
-                    boxShadow: '0 8px 25px rgba(255, 230, 109, 0.3)'
-                  }}>
-                    <p style={{
-                      margin: '0 0 0.5rem 0',
-                      fontWeight: '700',
-                      color: '#1A1A1A'
-                    }}>
+                  <div className="bg-[#18181b] p-8 rounded-2xl shadow-xl border border-slate-700/60">
+                    <p className="mb-3 font-bold text-slate-100 text-base">
                       Room ID:
                     </p>
-                    <code style={{
-                      fontSize: '2rem',
-                      fontWeight: '700',
-                      color: '#1A1A1A',
-                      letterSpacing: '2px'
-                    }}>
+                    <code className="text-3xl font-bold text-cyan-400 tracking-wider">
                       {roomId}
                     </code>
                   </div>
                 </motion.div>
               )}
 
-                          {/* Start Game Button */}
-            {roomReady && isOwner && !gameStarted && (
-              <motion.div
-                variants={itemVariants}
-                style={{ textAlign: 'center', marginBottom: '2rem' }}
-              >
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    const socket = getSocket();
-                    socket.emit('start_game', { roomId });
-                  }}
-                  style={{
-                    background: 'linear-gradient(135deg, #4ECDC4 0%, #44B3AC 100%)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '16px',
-                    padding: '1.5rem 3rem',
-                    fontSize: '1.3rem',
-                    cursor: 'pointer',
-                    fontWeight: '700',
-                    boxShadow: '0 15px 40px rgba(78, 205, 196, 0.4)'
-                  }}
-                >
-                  🚀 Start Game
-                </motion.button>
-                <p style={{
-                  color: '#4ECDC4',
-                  marginTop: '1rem',
-                  fontWeight: '600'
-                }}>
-                  Both players are ready! Click to start the game.
-                </p>
-              </motion.div>
-            )}
-
-            {/* Leave Room Button - When Game Ended */}
-            {gameStarted && timeLeft === null && (
-              <motion.div
-                variants={itemVariants}
-                style={{ textAlign: 'center', marginBottom: '2rem' }}
-              >
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleBack}
-                  style={{
-                    background: 'linear-gradient(135deg, #FF6B6B 0%, #E53E3E 100%)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '16px',
-                    padding: '1.5rem 3rem',
-                    fontSize: '1.3rem',
-                    cursor: 'pointer',
-                    fontWeight: '700',
-                    boxShadow: '0 15px 40px rgba(255, 107, 107, 0.4)'
-                  }}
-                >
-                  🚪 Leave Room
-                </motion.button>
-                <p style={{
-                  color: '#FF6B6B',
-                  marginTop: '1rem',
-                  fontWeight: '600'
-                }}>
-                  Game has ended. Click to leave the room.
-                </p>
-              </motion.div>
-            )}
-
-              {roomReady && !isOwner && !gameStarted && (
+              {/* Waiting for Owner to Start Game (for non-owners) */}
+              {!gameStarted && !isOwner && (
                 <motion.div
                   variants={itemVariants}
-                  style={{
-                    background: '#FFFFFF',
-                    padding: '2rem',
-                    borderRadius: '20px',
-                    textAlign: 'center',
-                    marginBottom: '2rem',
-                    boxShadow: '0 10px 40px rgba(26, 26, 46, 0.08)'
-                  }}
+                  className="bg-[#23272f] p-8 rounded-2xl text-center shadow-xl border border-slate-700/60"
                 >
                   <motion.div
                     animate={{ scale: [1, 1.1, 1] }}
                     transition={{ duration: 1.5, repeat: Infinity }}
-                    style={{ fontSize: '3rem', marginBottom: '1rem' }}
+                    className="text-5xl mb-4 text-cyan-400"
                   >
                     ⏰
                   </motion.div>
-                  <p style={{
-                    color: '#FFE66D',
-                    fontWeight: '700',
-                    fontSize: '1.2rem',
-                    margin: 0
-                  }}>
+                  <p className="text-cyan-400 font-bold text-xl">
+                    Waiting for the room owner to start the game...
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Start Game Button */}
+              {roomReady && isOwner && !gameStarted && (
+                <motion.div
+                  variants={itemVariants}
+                  className="text-center"
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(59, 130, 246, 0.4)" }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      const socket = getSocket();
+                      socket.emit('start_game', { roomId });
+                    }}
+                    className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white border-none rounded-2xl px-12 py-5 text-xl cursor-pointer font-bold shadow-xl hover:shadow-2xl transition-all duration-300"
+                  >
+                    🚀 Start Game
+                  </motion.button>
+                  <p className="text-cyan-400 mt-4 font-semibold text-base">
+                    Both players are ready! Click to start the game.
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Leave Room Button - When Game Ended */}
+              {gameStarted && timeLeft === null && (
+                <motion.div
+                  variants={itemVariants}
+                  className="text-center"
+                >
+                  <motion.button
+                    whileHover={{ scale: 1.02, boxShadow: "0 20px 40px rgba(244, 143, 177, 0.4)" }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleBack}
+                    className="bg-gradient-to-r from-rose-500 to-pink-500 text-white border-none rounded-2xl px-12 py-5 text-xl cursor-pointer font-bold shadow-xl hover:shadow-2xl transition-all duration-300"
+                  >
+                    🚪 Leave Room
+                  </motion.button>
+                  <p className="text-rose-400 mt-4 font-semibold text-base">
+                    Game has ended. Click to leave the room.
+                  </p>
+                </motion.div>
+              )}
+
+              {roomReady && !isOwner && !gameStarted && (
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-[#23272f] p-8 rounded-2xl text-center shadow-xl border border-slate-700/60"
+                >
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="text-5xl mb-4 text-cyan-400"
+                  >
+                    ⏰
+                  </motion.div>
+                  <p className="text-cyan-400 font-bold text-xl">
                     Waiting for the room owner to start the game...
                   </p>
                 </motion.div>
@@ -916,42 +674,22 @@ export default function RoomPage() {
               {gameStarted && (
                 <motion.div
                   variants={itemVariants}
-                  style={{
-                    background: 'linear-gradient(135deg, #4ECDC4 0%, #44B3AC 100%)',
-                    padding: '2rem',
-                    borderRadius: '20px',
-                    textAlign: 'center',
-                    marginBottom: '2rem',
-                    boxShadow: '0 15px 40px rgba(78, 205, 196, 0.3)'
-                  }}
+                  className="bg-[#23272f] p-8 rounded-2xl text-center shadow-2xl border border-slate-700/60"
                 >
                   <motion.div
                     animate={{ rotate: [0, 360] }}
                     transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                    style={{ fontSize: '3rem', marginBottom: '1rem' }}
+                    className="text-5xl mb-4 text-cyan-400"
                   >
                     🎮
                   </motion.div>
-                  <h3 style={{
-                    color: '#FFFFFF',
-                    margin: '0 0 1rem 0',
-                    fontSize: '1.5rem',
-                    fontWeight: '700'
-                  }}>
+                  <h3 className="text-slate-100 mb-3 text-2xl font-bold">
                     Game is Active!
                   </h3>
-                  <p style={{
-                    color: '#FFFFFF',
-                    margin: '0.5rem 0',
-                    opacity: 0.9
-                  }}>
+                  <p className="text-slate-400 my-2 opacity-90 text-base">
                     Both players are in the room and the timer is running.
                   </p>
-                  <p style={{
-                    color: '#FFFFFF',
-                    margin: 0,
-                    opacity: 0.9
-                  }}>
+                  <p className="text-slate-400 opacity-90 text-base">
                     Work on your solution and submit when ready!
                   </p>
                 </motion.div>
@@ -961,36 +699,16 @@ export default function RoomPage() {
 
           {/* Right Column - Code Editor and Output */}
           {gameStarted && (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div className="flex flex-col h-full w-full max-w-full space-y-2">
               {/* Code Editor */}
               <motion.div
                 variants={itemVariants}
-                style={{
-                  background: '#FFFFFF',
-                  padding: '2rem',
-                  borderRadius: '20px',
-                  marginBottom: '2rem',
-                  boxShadow: '0 10px 40px rgba(26, 26, 46, 0.08)',
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
+                className="bg-[#23272f] p-6 rounded-2xl shadow-xl flex-1 flex flex-col border border-slate-700/60 mb-2"
               >
-                <h3 style={{
-                  color: '#1A1A1A',
-                  margin: '0 0 1.5rem 0',
-                  fontSize: '1.5rem',
-                  fontWeight: '700'
-                }}>
+                <h3 className="text-slate-100 mb-4 text-xl font-bold flex items-center gap-2">
                   💻 Code Editor
                 </h3>
-                <div style={{
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  marginBottom: '1.5rem',
-                  boxShadow: '0 8px 25px rgba(26, 26, 46, 0.1)',
-                  flex: 1
-                }}>
+                <div className="rounded-xl overflow-hidden mb-4 flex-1 border border-slate-700/60 shadow-inner">
                   <Editor
                     height="100%"
                     defaultLanguage="cpp"
@@ -999,42 +717,41 @@ export default function RoomPage() {
                     theme="vs-dark"
                     options={{
                       minimap: { enabled: false },
-                      fontSize: 14,
+                      fontSize: 16,
                       lineNumbers: 'on',
                       roundedSelection: false,
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
-                      wordWrap: 'on'
+                      wordWrap: 'on',
+                      padding: { top: 12, bottom: 12 },
+                      scrollbar: {
+                        vertical: 'visible',
+                        horizontal: 'visible',
+                        verticalScrollbarSize: 10,
+                        horizontalScrollbarSize: 10
+                      },
+                      fontFamily: 'JetBrains Mono, Fira Code, monospace',
+                      fontLigatures: true
                     }}
                   />
                 </div>
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.01, boxShadow: "0 10px 30px rgba(244, 143, 177, 0.3)" }}
+                  whileTap={{ scale: 0.99 }}
                   onClick={handleSubmitCode}
                   disabled={isExecuting}
-                  style={{
-                    background: isExecuting 
-                      ? 'linear-gradient(135deg, #E6E6E6 0%, #CCCCCC 100%)'
-                      : 'linear-gradient(135deg, #FF6B6B 0%, #E53E3E 100%)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '1rem 2rem',
-                    fontSize: '1.1rem',
-                    cursor: isExecuting ? 'not-allowed' : 'pointer',
-                    fontWeight: '700',
-                    boxShadow: isExecuting 
-                      ? 'none' 
-                      : '0 8px 25px rgba(255, 107, 107, 0.3)'
-                  }}
+                  className={`border-none rounded-xl px-8 py-4 text-lg cursor-pointer font-bold transition-all duration-300 ${
+                    isExecuting 
+                      ? 'bg-slate-700/60 text-slate-400 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg hover:shadow-xl'
+                  }`}
                 >
                   {isExecuting ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="flex items-center justify-center gap-3">
                       <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        style={{ width: '16px', height: '16px', border: '2px solid #FFFFFF', borderTop: '2px solid transparent', borderRadius: '50%' }}
+                        className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                       />
                       Executing...
                     </span>
@@ -1047,36 +764,18 @@ export default function RoomPage() {
               {/* Output Display */}
               <motion.div
                 variants={itemVariants}
-                style={{
-                  background: '#FFFFFF',
-                  padding: '2rem',
-                  borderRadius: '20px',
-                  boxShadow: '0 10px 40px rgba(26, 26, 46, 0.08)',
-                  backgroundColor: output.includes('Error') ? '#FFE6E6' : 
-                                 output.includes('Correct') ? '#E8F5E8' : '#F5F5F5',
-                  border: `2px solid ${output.includes('Error') ? '#FF6B6B' : 
-                                      output.includes('Correct') ? '#4ECDC4' : '#E6E6E6'}`,
-                  height: '200px',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
+                className={`p-6 rounded-2xl shadow-xl border h-56 flex flex-col ${
+                  output.includes('Error') ? 'bg-slate-800/60 border-rose-400/50' : 
+                  output.includes('Correct') ? 'bg-slate-800/60 border-green-400/50' : 'bg-slate-800/60 border-slate-700/50'
+                }`}
               >
-                <h4 style={{
-                  margin: '0 0 1rem 0',
-                  color: '#1A1A1A',
-                  fontWeight: '700'
-                }}>
-                  Output:
+                <h4 className="mb-4 text-slate-100 font-bold text-lg flex items-center gap-2">
+                  📊 Output:
                 </h4>
-                <div style={{
-                  color: output.includes('Error') ? '#FF6B6B' :
-                         output.includes('Correct') ? '#4ECDC4' : '#1A1A1A',
-                  fontWeight: '600',
-                  fontFamily: 'monospace',
-                  whiteSpace: 'pre-wrap',
-                  flex: 1,
-                  overflowY: 'auto'
-                }}>
+                <div className={`font-mono whitespace-pre-wrap flex-1 overflow-y-auto text-sm leading-relaxed p-4 rounded-xl border ${
+                  output.includes('Error') ? 'text-rose-400 bg-[#18181b] border-rose-400/60' :
+                  output.includes('Correct') ? 'text-emerald-400 bg-[#18181b] border-emerald-400/60' : 'text-slate-300 bg-[#18181b] border-slate-700/60'
+                } font-medium`}>
                   {output || 'No output yet. Run your code to see the results!'}
                 </div>
               </motion.div>

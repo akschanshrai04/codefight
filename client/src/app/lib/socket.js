@@ -84,10 +84,10 @@ export const connectSocket = async () => {
     }));
   });
 
-  socket.on('receive_message', ({ username, message }) => {
-    console.log('💬 Message received:', username, message);
+  socket.on('receive_message', ({ username, id, message }) => {
+    console.log('💬 Message received:', username, id, message);
     window.dispatchEvent(new CustomEvent('receiveMessage', { 
-      detail: { username, message } 
+      detail: { username, id, message } 
     }));
   });
 

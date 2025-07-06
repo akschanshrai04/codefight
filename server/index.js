@@ -19,7 +19,7 @@ const io = new Server(server, {
 });
 
 // Firebase Admin SDK init
-import serviceAccount from "./asymmetric-moon-446511-g6-firebase-adminsdk-fbsvc-af340df1b0.json" assert { type: "json" };
+const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)

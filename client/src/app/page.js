@@ -12,6 +12,7 @@ export default function Home() {
   const [joinRoomId, setJoinRoomId] = useState('');
   const [joinStatus, setJoinStatus] = useState('');
   const [username, setUsername] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -22,9 +23,11 @@ export default function Home() {
           setUsername(user.email);
           await connectSocket();
           setStatus('Ready');
+          setIsLoading(false);
         } else {
           setStatus('🔐 Please log in first');
-          router.push('/login');
+          router.push('/home');
+          setIsLoading(false);
         }
       });
     };
@@ -85,17 +88,15 @@ export default function Home() {
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, scale: 0.9, y: 20 },
+    hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
-      scale: 1,
       y: 0,
-      transition: { duration: 0.5, ease: "easeOut" }
+      transition: { duration: 0.1, ease: "easeOut" }
     },
     hover: {
-      scale: 1.05,
-      y: -5,
-      transition: { duration: 0.3, ease: "easeInOut" }
+      y: -4,
+      transition: { duration: 0.1, ease: "easeOut" }
     }
   };
 
@@ -111,151 +112,98 @@ export default function Home() {
     return 'connecting';
   };
 
+  // Loading spinner component
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#18181b] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mb-4"></div>
+          <p className="text-slate-400 text-lg font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #F7FFF7 0%, #E8F8F5 100%)',
-        padding: '40px 20px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }}
+      className="min-h-screen bg-[#18181b] p-6 overflow-x-hidden"
     >
-      <div style={{ maxWidth: 800, margin: 'auto', textAlign: 'center' }}>
+      <div className="max-w-5xl mx-auto">
         
         {/* Header Section */}
         <motion.div
           variants={itemVariants}
-          style={{ marginBottom: 60 }}
+          className="text-center mb-12"
         >
           <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            style={{
-              fontSize: '4rem',
-              fontWeight: '800',
-              background: 'linear-gradient(135deg, #4ECDC4 0%, #44B3AA 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              margin: '0 0 16px 0',
-              letterSpacing: '-2px'
-            }}
+            className="text-6xl md:text-8xl font-bold text-slate-100 mb-4 tracking-tight"
           >
-            CodeFight
+            Code<span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">Fight</span>
           </motion.h1>
           
           <motion.p
             variants={itemVariants}
-            style={{
-              fontSize: '1.5rem',
-              color: '#1A1A1A',
-              margin: '0 0 32px 0',
-              fontWeight: '500',
-              opacity: 0.8
-            }}
+            className="text-lg md:text-xl text-slate-400 font-medium"
           >
-            1v1 Competitive Coding
+            1v1 Competitive Coding Platform
           </motion.p>
+        </motion.div>
 
-          {/* Status and Logout Section */}
-          <motion.div
-            variants={itemVariants}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 20,
-              justifyContent: 'center',
-              marginBottom: 20,
-              flexWrap: 'wrap'
-            }}
-          >
-            {/* Status Card */}
+        {/* Status Bar */}
+        <motion.div
+          variants={itemVariants}
+          className="flex items-center justify-between mb-12 bg-[#23272f]/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-700/30"
+        >
+          <div className="flex items-center gap-4">
             <motion.div
-              style={{
-                background: '#FFFFFF',
-                borderRadius: 20,
-                padding: '20px 32px',
-                boxShadow: '0 10px 30px rgba(26, 26, 46, 0.1)',
-                display: 'inline-block'
-              }}
+              variants={statusVariants}
+              animate={getStatusVariant()}
+              className="flex items-center gap-3"
             >
-              <motion.p
-                variants={statusVariants}
-                animate={getStatusVariant()}
-                style={{
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  margin: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8
-                }}
-              >
-                Status: {status}
-              </motion.p>
-              
-              {username && (
-                <motion.p
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5, duration: 0.4 }}
-                  style={{
-                    fontSize: '0.9rem',
-                    color: '#666',
-                    margin: '8px 0 0 0',
-                    fontWeight: '500'
-                  }}
-                >
-                  Welcome, {username}
-                </motion.p>
-              )}
+              <div className={`w-3 h-3 rounded-full ${
+                status === 'Ready' ? 'bg-[#4ECDC4]' : 
+                status.includes('🔐') ? 'bg-[#FF6B6B]' : 'bg-[#FFE66D]'
+              }`} />
+              <span className="text-lg font-semibold text-slate-100">
+                {status}
+              </span>
             </motion.div>
-
-            {/* Logout Button */}
+            
             {username && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleLogout}
-                style={{
-                  background: 'linear-gradient(135deg, #FF6B6B 0%, #EE5A5A 100%)',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  borderRadius: 16,
-                  padding: '12px 24px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  letterSpacing: '0.5px',
-                  textTransform: 'uppercase',
-                  boxShadow: '0 6px 20px rgba(255, 107, 107, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  transition: 'all 0.2s ease'
-                }}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, duration: 0.4 }}
+                className="text-slate-400 text-sm bg-slate-800/50 px-3 py-1 rounded-full"
               >
-                <span>🚪</span>
-                Logout
-              </motion.button>
+                {username}
+              </motion.div>
             )}
-          </motion.div>
+          </div>
+
+          {username && (
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleLogout}
+              className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl font-medium hover:shadow-lg transition-all duration-100 flex items-center gap-2 text-sm"
+            >
+              <span>🚪</span>
+              Logout
+            </motion.button>
+          )}
         </motion.div>
 
         {/* Action Cards */}
         <motion.div
           variants={itemVariants}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 32,
-            maxWidth: 800,
-            margin: 'auto'
-          }}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-8"
         >
           {/* Create Room Card */}
           <motion.div
@@ -263,159 +211,96 @@ export default function Home() {
             whileHover="hover"
             whileTap={{ scale: 0.98 }}
             onClick={handleCreateRoom}
-            style={{
-              background: '#FFFFFF',
-              borderRadius: 24,
-              padding: 40,
-              cursor: 'pointer',
-              boxShadow: '0 15px 35px rgba(78, 205, 196, 0.15)',
-              border: '2px solid rgba(78, 205, 196, 0.1)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
+            className="group bg-[#23272f]/80 backdrop-blur-sm rounded-3xl p-8 cursor-pointer shadow-2xl border border-slate-700/40 hover:border-cyan-400/50 transition-all duration-300 relative overflow-hidden"
           >
             <motion.div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 4,
-                background: 'linear-gradient(90deg, #4ECDC4 0%, #44B3AA 100%)'
-              }}
+              className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             />
             
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.8, duration: 0.5, type: "spring" }}
-              style={{
-                fontSize: '3rem',
-                marginBottom: 20
-              }}
-            >
-              🏗️
-            </motion.div>
+            <div className="flex items-center gap-4 mb-6">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.8, duration: 0.5, type: "spring" }}
+                className="text-4xl p-3 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl border border-cyan-400/30"
+              >
+                🏗️
+              </motion.div>
+              
+              <div>
+                <h3 className="text-2xl font-bold text-slate-100 mb-1">
+                  Create Room
+                </h3>
+                <p className="text-slate-400 text-sm">
+                  Host a new challenge
+                </p>
+              </div>
+            </div>
             
-            <h3 style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#1A1A1A',
-              margin: '0 0 12px 0'
-            }}>
-              Create Room
-            </h3>
-            
-            <p style={{
-              color: '#666',
-              fontSize: '1rem',
-              margin: 0,
-              lineHeight: 1.5
-            }}>
-              Start a new coding challenge and invite others to compete
+            <p className="text-slate-400 leading-relaxed mb-4">
+              Start a new coding challenge and invite others to compete in real-time battles
             </p>
+
+            <div className="flex items-center text-cyan-400 text-sm font-medium group-hover:translate-x-1 transition-transform duration-200">
+              <span>Get started</span>
+              <span className="ml-2">→</span>
+            </div>
           </motion.div>
 
           {/* Join Room Card */}
           <motion.div
             variants={cardVariants}
             whileHover="hover"
-            style={{
-              background: '#FFFFFF',
-              borderRadius: 24,
-              padding: 40,
-              boxShadow: '0 15px 35px rgba(255, 107, 107, 0.15)',
-              border: '2px solid rgba(255, 107, 107, 0.1)',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
+            className="group bg-[#23272f]/80 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-slate-700/40 hover:border-rose-400/50 transition-all duration-300 relative overflow-hidden"
           >
             <motion.div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 4,
-                background: 'linear-gradient(90deg, #FF6B6B 0%, #EE5A5A 100%)'
-              }}
+              className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-rose-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
             />
             
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 1, duration: 0.5, type: "spring" }}
-              style={{
-                fontSize: '3rem',
-                marginBottom: 20
-              }}
-            >
-              🚪
-            </motion.div>
+            <div className="flex items-center gap-4 mb-6">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 1, duration: 0.5, type: "spring" }}
+                className="text-4xl p-3 bg-gradient-to-br from-rose-500/20 to-pink-500/20 rounded-2xl border border-rose-400/30"
+              >
+                🚪
+              </motion.div>
+              
+              <div>
+                <h3 className="text-2xl font-bold text-slate-100 mb-1">
+                  Join Room
+                </h3>
+                <p className="text-slate-400 text-sm">
+                  Enter existing battle
+                </p>
+              </div>
+            </div>
             
-            <h3 style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#1A1A1A',
-              margin: '0 0 12px 0'
-            }}>
-              Join Room
-            </h3>
-            
-            <p style={{
-              color: '#666',
-              fontSize: '1rem',
-              margin: '0 0 24px 0',
-              lineHeight: 1.5
-            }}>
-              Enter an existing room to join the battle
+            <p className="text-slate-400 leading-relaxed mb-6">
+              Enter an existing room ID to join the coding battle
             </p>
 
-            <motion.input
-              whileFocus={{ scale: 1.02 }}
-              type="text"
-              value={joinRoomId}
-              onChange={(e) => setJoinRoomId(e.target.value)}
-              placeholder="Enter Room ID"
-              style={{
-                width: '100%',
-                padding: '14px 16px',
-                borderRadius: 12,
-                border: '2px solid #F0F0F0',
-                fontSize: '16px',
-                fontFamily: 'inherit',
-                color: '#1A1A1A',
-                background: '#F7FFF7',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-                boxSizing: 'border-box',
-                marginBottom: 16
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#FF6B6B'}
-              onBlur={(e) => e.target.style.borderColor = '#F0F0F0'}
-            />
+            <div className="space-y-4">
+              <motion.input
+                whileFocus={{ scale: 1.01 }}
+                type="text"
+                value={joinRoomId}
+                onChange={(e) => setJoinRoomId(e.target.value)}
+                placeholder="Enter Room ID"
+                className="w-full p-4 rounded-2xl border border-slate-700/60 text-slate-100 bg-[#18181b]/80 placeholder-slate-400 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 transition-all duration-200 font-medium"
+              />
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleJoinRoom}
-              style={{
-                width: '100%',
-                padding: '14px 24px',
-                background: 'linear-gradient(135deg, #FF6B6B 0%, #EE5A5A 100%)',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: 12,
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                boxShadow: '0 8px 20px rgba(255, 107, 107, 0.3)'
-              }}
-            >
-              Join Room
-            </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleJoinRoom}
+                className="w-full p-4 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-2xl font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <span>Join Battle</span>
+                <span>⚔️</span>
+              </motion.button>
+            </div>
 
             <AnimatePresence>
               {joinStatus && (
@@ -424,18 +309,11 @@ export default function Home() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
-                  style={{
-                    marginTop: 16,
-                    padding: '12px 16px',
-                    borderRadius: 10,
-                    background: joinStatus.includes('✅') 
-                      ? 'rgba(78, 205, 196, 0.1)' 
-                      : 'rgba(255, 107, 107, 0.1)',
-                    border: `1px solid ${joinStatus.includes('✅') ? '#4ECDC4' : '#FF6B6B'}`,
-                    color: joinStatus.includes('✅') ? '#2E8B7A' : '#D63447',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
+                  className={`mt-4 p-4 rounded-2xl text-sm font-medium border ${
+                    joinStatus.includes('✅') 
+                      ? 'bg-emerald-950/20 border-emerald-400/60 text-emerald-400' 
+                      : 'bg-rose-950/20 border-rose-400/60 text-rose-400'
+                  }`}
                 >
                   {joinStatus}
                 </motion.div>
@@ -447,18 +325,9 @@ export default function Home() {
         {/* Footer */}
         <motion.div
           variants={itemVariants}
-          style={{
-            marginTop: 60,
-            padding: '24px 0',
-            borderTop: '1px solid rgba(26, 26, 26, 0.1)'
-          }}
+          className="mt-16 pt-8 border-t border-slate-700/30 text-center"
         >
-          <p style={{
-            color: '#666',
-            fontSize: '0.9rem',
-            margin: 0,
-            opacity: 0.7
-          }}>
+          <p className="text-slate-500 text-sm font-medium">
             Ready to code? Choose your battle mode above! 🚀
           </p>
         </motion.div>

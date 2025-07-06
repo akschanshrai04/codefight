@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { connectSocket, getSocket } from '@/lib/socket';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
 export default function CreateRoom() {
@@ -10,7 +12,26 @@ export default function CreateRoom() {
   const [timeLimit, setTimeLimit] = useState(300); // 5 minutes
   const [roomId, setRoomId] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const waitForAuth = () => {
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          await connectSocket();
+          setIsAuthenticated(true);
+          setIsLoading(false);
+        } else {
+          setIsLoading(false);
+          router.push('/home');
+        }
+      });
+    };
+    
+    waitForAuth();
+  }, [router]);
 
   const handleCreate = () => {
     const socket = getSocket();
@@ -38,307 +59,206 @@ export default function CreateRoom() {
 
   // Animation variants
   const containerVariants = {
-    hidden: { opacity: 0, y: 50 },
+    hidden: { opacity: 0, y: 30 },
     visible: { 
       opacity: 1, 
       y: 0,
       transition: {
-        duration: 0.6,
+        duration: 0.5,
         ease: "easeOut",
-        staggerChildren: 0.1
+        staggerChildren: 0.08
       }
     }
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 15 },
     visible: { 
       opacity: 1, 
       y: 0,
-      transition: { duration: 0.4, ease: "easeOut" }
+      transition: { duration: 0.3, ease: "easeOut" }
     }
   };
 
   const buttonVariants = {
     idle: { scale: 1 },
     hover: { 
-      scale: 1.02,
+      scale: 1.01,
       transition: { duration: 0.2, ease: "easeInOut" }
     },
-    tap: { scale: 0.98 }
+    tap: { scale: 0.99 }
   };
 
   const inputVariants = {
     focus: { 
-      scale: 1.02,
+      scale: 1.01,
       transition: { duration: 0.2, ease: "easeOut" }
     }
   };
+
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#18181b] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mb-4"></div>
+          <p className="text-slate-400 text-lg font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render the component if not authenticated (prevents flash)
+  if (!isAuthenticated) {
+    return( 
+      <div className="min-h-screen bg-[#18181b] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mb-4"></div>
+          <p className="text-slate-400 text-lg font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.8 }}
-      style={{ 
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #F7FFF7 0%, #E8F8F5 100%)',
-        padding: '40px 20px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-      }}
+      transition={{ duration: 0.6 }}
+      className="min-h-screen bg-[#18181b] flex items-center justify-center p-4"
     >
       <motion.div 
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        style={{ 
-          maxWidth: 520, 
-          margin: 'auto',
-          background: '#FFFFFF',
-          borderRadius: 20,
-          boxShadow: '0 20px 40px rgba(26, 26, 46, 0.1)',
-          overflow: 'hidden'
-        }}
+        className="w-full max-w-md"
       >
-        {/* Header */}
+        {/* Back Button */}
+        <motion.button 
+          variants={itemVariants}
+          onClick={handleBack}
+          whileHover={{ scale: 1.02, x: -2 }}
+          whileTap={{ scale: 0.98 }}
+          className="mb-6 px-3 py-2 text-slate-400 hover:text-slate-200 transition-colors duration-200 flex items-center gap-2 text-sm font-medium"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Home
+        </motion.button>
+
+        {/* Main Card */}
         <motion.div 
           variants={itemVariants}
-          style={{
-            background: 'linear-gradient(135deg, #4ECDC4 0%, #44B3AA 100%)',
-            padding: '30px 32px',
-            color: '#FFFFFF'
-          }}
+          className="bg-[#23272f] rounded-2xl border border-slate-700/50 shadow-xl overflow-hidden"
         >
-          <motion.button 
-            onClick={handleBack}
-            whileHover={{ scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.3)' }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            style={{ 
-              background: 'rgba(255, 255, 255, 0.2)', 
-              border: 'none', 
-              fontSize: '14px', 
-              cursor: 'pointer',
-              color: '#FFFFFF',
-              padding: '8px 16px',
-              borderRadius: 20,
-              marginBottom: 20,
-              fontWeight: '500',
-              backdropFilter: 'blur(10px)'
-            }}
-          >
-            ← Back to Home
-          </motion.button>
-          
-          <motion.h1 
-            variants={itemVariants}
-            style={{ 
-              margin: 0, 
-              fontSize: '28px', 
-              fontWeight: '700',
-              letterSpacing: '-0.5px'
-            }}
-          >
-            Create a New Room
-          </motion.h1>
-          <motion.p 
-            variants={itemVariants}
-            style={{ 
-              margin: '8px 0 0 0', 
-              opacity: 0.9, 
-              fontSize: '16px',
-              fontWeight: '400'
-            }}
-          >
-            Set up your coding challenge session
-          </motion.p>
-        </motion.div>
-
-        {/* Content */}
-        <motion.div 
-          variants={itemVariants}
-          style={{ padding: '32px' }}
-        >
-          <motion.div 
-            variants={itemVariants}
-            style={{ 
-              background: '#F7FFF7', 
-              padding: 28, 
-              borderRadius: 16,
-              border: '1px solid rgba(78, 205, 196, 0.1)'
-            }}
-          >
-            
-            <motion.div 
+          {/* Header */}
+          <div className="p-6 pb-4">
+            <motion.h1 
               variants={itemVariants}
-              style={{ marginBottom: 24 }}
+              className="text-2xl font-bold text-slate-100 mb-1"
             >
-              <motion.label 
-                variants={itemVariants}
-                style={{ 
-                  display: 'block', 
-                  marginBottom: 8, 
-                  fontWeight: '600',
-                  color: '#1A1A1A',
-                  fontSize: '14px',
-                  letterSpacing: '0.5px',
-                  textTransform: 'uppercase'
-                }}
-              >
-                Question ID
-              </motion.label>
-              <motion.input
-                variants={inputVariants}
-                whileFocus="focus"
-                type="text"
-                value={questionId}
-                onChange={(e) => setQuestionId(e.target.value)}
-                placeholder="e.g., two_sum, palindrome"
-                style={{ 
-                  width: '100%', 
-                  padding: '14px 16px', 
-                  borderRadius: 12,
-                  border: '2px solid #E8F8F5',
-                  fontSize: '16px',
-                  fontFamily: 'inherit',
-                  color: '#1A1A1A',
-                  background: '#FFFFFF',
-                  transition: 'border-color 0.2s ease',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#4ECDC4'}
-                onBlur={(e) => e.target.style.borderColor = '#E8F8F5'}
-              />
-            </motion.div>
-
-            <motion.div 
+              Create Room
+            </motion.h1>
+            <motion.p 
               variants={itemVariants}
-              style={{ marginBottom: 28 }}
+              className="text-slate-400 text-sm"
             >
-              <motion.label 
-                variants={itemVariants}
-                style={{ 
-                  display: 'block', 
-                  marginBottom: 8, 
-                  fontWeight: '600',
-                  color: '#1A1A1A',
-                  fontSize: '14px',
-                  letterSpacing: '0.5px',
-                  textTransform: 'uppercase'
-                }}
-              >
-                Time Limit (seconds)
-              </motion.label>
-              <motion.input
-                variants={inputVariants}
-                whileFocus="focus"
-                type="number"
-                value={timeLimit}
-                onChange={(e) => setTimeLimit(Number(e.target.value))}
-                min="60"
-                max="3600"
-                style={{ 
-                  width: '100%', 
-                  padding: '14px 16px', 
-                  borderRadius: 12,
-                  border: '2px solid #E8F8F5',
-                  fontSize: '16px',
-                  fontFamily: 'inherit',
-                  color: '#1A1A1A',
-                  background: '#FFFFFF',
-                  transition: 'border-color 0.2s ease',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#4ECDC4'}
-                onBlur={(e) => e.target.style.borderColor = '#E8F8F5'}
-              />
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.3 }}
-                style={{ 
-                  marginTop: 8,
-                  padding: '8px 12px',
-                  background: 'rgba(255, 230, 109, 0.2)',
-                  borderRadius: 8,
-                  border: '1px solid rgba(255, 230, 109, 0.3)'
-                }}
-              >
-                <small style={{ 
-                  color: '#B8860B',
-                  fontSize: '13px',
-                  fontWeight: '500'
-                }}>
-                  💡 Recommended: 300 seconds (5 minutes)
-                </small>
+              Configure your coding challenge session
+            </motion.p>
+          </div>
+
+          {/* Form */}
+          <div className="px-6 pb-6">
+            <div className="space-y-5">
+              {/* Question ID Field */}
+              <motion.div variants={itemVariants}>
+                <label className="block text-slate-200 text-sm font-medium mb-2">
+                  Question ID
+                </label>
+                <motion.input
+                  variants={inputVariants}
+                  whileFocus="focus"
+                  type="text"
+                  value={questionId}
+                  onChange={(e) => setQuestionId(e.target.value)}
+                  placeholder="e.g., two_sum, palindrome"
+                  className="w-full px-4 py-3 rounded-lg bg-[#18181b] border border-slate-700/60 text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/20 transition-all duration-200"
+                />
               </motion.div>
-            </motion.div>
 
-            <motion.button 
-              variants={buttonVariants}
-              initial="idle"
-              whileHover={!isCreating ? "hover" : "idle"}
-              whileTap={!isCreating ? "tap" : "idle"}
-              onClick={handleCreate}
-              disabled={isCreating}
-              style={{ 
-                width: '100%', 
-                padding: '16px 24px', 
-                background: isCreating 
-                  ? 'linear-gradient(135deg, #B0B0B0 0%, #999999 100%)'
-                  : 'linear-gradient(135deg, #4ECDC4 0%, #44B3AA 100%)',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: 12,
-                fontSize: '16px',
-                fontWeight: '600',
-                cursor: isCreating ? 'not-allowed' : 'pointer',
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                boxShadow: isCreating 
-                  ? 'none'
-                  : '0 8px 20px rgba(78, 205, 196, 0.3)',
-              }}
-            >
-              <AnimatePresence mode="wait">
-                {isCreating ? (
-                  <motion.span 
-                    key="creating"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                  >
+              {/* Time Limit Field */}
+              <motion.div variants={itemVariants}>
+                <label className="block text-slate-200 text-sm font-medium mb-2">
+                  Time Limit
+                </label>
+                <motion.input
+                  variants={inputVariants}
+                  whileFocus="focus"
+                  type="number"
+                  value={timeLimit}
+                  onChange={(e) => setTimeLimit(Number(e.target.value))}
+                  min="60"
+                  max="3600"
+                  className="w-full px-4 py-3 rounded-lg bg-[#18181b] border border-slate-700/60 text-slate-100 placeholder-slate-500 outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/20 transition-all duration-200"
+                />
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 }}
+                  className="mt-2 text-xs text-slate-400 flex items-center gap-1"
+                >
+                </motion.div>
+              </motion.div>
+
+              {/* Create Button */}
+              <motion.button 
+                variants={buttonVariants}
+                initial="idle"
+                whileHover={!isCreating ? "hover" : "idle"}
+                whileTap={!isCreating ? "tap" : "idle"}
+                onClick={handleCreate}
+                disabled={isCreating}
+                className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 mt-6 ${
+                  isCreating 
+                    ? 'bg-slate-600/50 text-slate-400 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:shadow-lg hover:shadow-cyan-500/20'
+                }`}
+              >
+                <AnimatePresence mode="wait">
+                  {isCreating ? (
+                    <motion.div 
+                      key="creating"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center gap-2"
+                    >
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-4 h-4 border-2 border-slate-400 border-t-white rounded-full"
+                      />
+                      Creating Room...
+                    </motion.div>
+                  ) : (
                     <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      style={{
-                        width: 16,
-                        height: 16,
-                        border: '2px solid rgba(255,255,255,0.3)',
-                        borderTop: '2px solid #FFFFFF',
-                        borderRadius: '50%'
-                      }}
-                    />
-                    Creating Room...
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="create"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    Create Room
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </motion.button>
-          </motion.div>
+                      key="create"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Create Room
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+            </div>
+          </div>
         </motion.div>
       </motion.div>
     </motion.div>

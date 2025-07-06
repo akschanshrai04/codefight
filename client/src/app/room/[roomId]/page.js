@@ -83,7 +83,7 @@ export default function RoomPage() {
           });
         } else {
           setStatus('🔐 Please log in first');
-          router.push('/login');
+          router.push('/home');
         }
       });
     };

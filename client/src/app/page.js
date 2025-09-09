@@ -33,7 +33,7 @@ export default function Home() {
     };
     
     waitForAuth();
-  }, []);
+  }, [router]);
 
   const handleCreateRoom = () => {
     router.push('/create-room');

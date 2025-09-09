@@ -89,7 +89,7 @@ export default function RoomPage() {
     };
 
     waitForAuth();
-  }, []);
+  }, [roomId, router]);
 
   useEffect(() => {
     const messagesContainer = document.querySelector('.messages-container');
@@ -231,7 +231,7 @@ export default function RoomPage() {
       if (result.compile && result.compile.code === 0) {
         const stdout = result.run?.stdout || '';
         const outputText = stdout.trim();
-        const passed = outputText === "akschansh";
+        const passed = outputText === "arunabh";
         setOutput(`Output: ${outputText}\nStatus: ${passed ? '✅ Correct!' : '❌ Incorrect'}`);
         socket.emit('submit_code', { roomId, output: outputText, passed }, (res) => {
           console.log("submitted successfully: ", res.success);
@@ -446,20 +446,20 @@ export default function RoomPage() {
                       </h3> */}
                       <div className="text-slate-300 leading-relaxed text-base space-y-4">
                         <p>
-                          <strong className="text-cyan-400">Problem:</strong> Print &#34;akschansh&#34; to the console.
+                          <strong className="text-cyan-400">Problem:</strong> Print &#34;arunabh&#34; to the console.
                         </p>
                         <p>
                           <strong className="text-cyan-400">Input:</strong> No input required.
                         </p>
                         <p>
-                          <strong className="text-cyan-400">Output:</strong> Print exactly &#34;akschansh&#34; (without quotes) to stdout.
+                          <strong className="text-cyan-400">Output:</strong> Print exactly &#34;arunabh&#34; (without quotes) to stdout.
                         </p>
                         <p>
                           <strong className="text-cyan-400">Example:</strong>
                         </p>
                         <div className="bg-[#18181b] p-4 rounded-xl font-mono border border-slate-700/60 text-sm space-y-2">
                           <div className="text-slate-300"><strong className="text-cyan-400">Input:</strong> (none)</div>
-                          <div className="text-emerald-400"><strong className="text-cyan-400">Output:</strong> akschansh</div>
+                          <div className="text-emerald-400"><strong className="text-cyan-400">Output:</strong> arunabh</div>
                         </div>
                       </div>
                     </div>

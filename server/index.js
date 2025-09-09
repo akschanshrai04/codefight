@@ -59,7 +59,6 @@ io.on("connection", (socket) => {
   //room creations
   socket.on('create_room', ({ questionId, timeLimit }, callback) => {
     if (!socket.userId){
-      console.log("auth kar randi ke");
       return;
     }
 
